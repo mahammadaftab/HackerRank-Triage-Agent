@@ -417,12 +417,12 @@ def _build_reply_response(ticket, hits) -> str:
 ## Links & Resources
 
 ### Project Links
-- **Repository:** [HackerRank Orchestrate on GitHub](https://github.com/mahammadaftab/Hackerrank-Triage-Agent.git)
+- **Repository:** [Project GitHub Repo](https://github.com/mahammadaftab/Hackerrank-Triage-Agent.git)
 - **Challenge:** [HackerRank Orchestrate Hackathon](https://www.hackerrank.com/contests/hackerrank-orchestrate-may26/)
 
 ### Developer Profile
-- **GitHub:** [github.com/yourusername](https://github.com/mahammadaftab)
-- **LinkedIn:** [linkedin.com/in/yourprofile](https://www.linkedin.com/in/mahammad-aftab)
+- **GitHub:** [mahammadaftab](https://github.com/mahammadaftab)
+- **LinkedIn:** [mahammad-aftab](https://www.linkedin.com/in/mahammad-aftab)
 
 ### Related Documentation
 - [problem_statement.md](../problem_statement.md) — Full task specification
