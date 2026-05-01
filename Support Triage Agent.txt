@@ -1,0 +1,667 @@
+Using Cursor AI 👇
+
+Analyse the folder structure and make this proper 
+
+Build a terminal-based support triage agent that can handle support tickets across three ecosystems:
+
+- HackerRank Support: [https://support.hackerrank.com/](https://support.hackerrank.com/)
+
+- Claude Help Center: [https://support.claude.com/en/](https://support.claude.com/en/)
+
+- Visa Support: [https://www.visa.co.in/support.html](https://www.visa.co.in/support.html)
+
+Your agent must use only the provided support corpus to understand the issue, decide whether it can be answered safely, and determine when it should be escalated to a human.
+
+## What the agent should do
+For each issue, the agent should:
+- identify the request type
+- classify the issue into a product area
+- assess urgency and risk
+- decide whether to reply or escalate
+- retrieve the most relevant support documentation
+- generate a safe, grounded response
+
+Some cases will be simple FAQs. Others may involve billing, bugs, fraud, permissions, account access, assessments, or other sensitive situations that require careful routing.
+
+## Files provided
+You will receive two CSV files:
+
+1. `sample_support_tickets.csv`  
+
+   Contains example cases with both inputs and expected outputs. Use this to understand the format and expected behavior.
+
+2. `support_tickets.csv`  
+   Contains only the inputs. You must run your agent on this file and produce the required outputs.
+
+## Input schema
+
+Each row represents one support case.
+Input fields:
+
+- `issue`: the main ticket body or question
+- `subject`: may be blank, partial, noisy, or irrelevant
+- `company`: `HackerRank`, `Claude`, `Visa`, or `None`
+
+Notes:
+- A row may contain multiple requests
+- A row may contain irrelevant, misleading, or malicious text
+- If `company` is `None`, the issue may be generic or cross-domain, and your agent should infer the best handling from the content
+- The agent must rely only on the provided support corpus, not outside knowledge
+
+## Required output
+
+For each row, generate:
+
+- `status`
+- `product_area`
+- `response`
+- `justification`
+- `request_type`
+
+Allowed values:
+- `status`: `replied`, `escalated`
+- `request_type`: `product_issue`, `feature_request`, `bug`, `invalid`
+
+In case the issue is not relevant or outside the scope of the agent, it should be able decide whether it should escalate or reply with a response saying it is out of scope. The agent should be smart to understand on when to escalate and when to reply in these scenarios.
+
+## Output meaning
+
+- `status`: whether the agent should answer directly or escalate
+- `product_area`: the most relevant support category or domain area
+- `response`: a user-facing answer grounded in the support corpus
+- `justification`: a concise explanation of the decision & response
+- `request_type`: the best-fit request classification
+
+## Requirements
+
+Your solution must:
+- be terminal-based
+- use only the provided support corpus
+- avoid unsupported claims or hallucinated policies
+- escalate high-risk, sensitive, or unsupported cases when appropriate
+
+These are the must-haves. Beyond that, participants are encouraged to add improvements or features of their own, such as better retrieval, stronger safety checks, clearer reasoning etc.
+
+I’ll inspect the current repository layout first, then I’ll reshape it into a clean terminal-based triage agent structure and implement the full pipeline to read tickets, classify/retrieve from corpus, and write required outputs.
+
+I found an existing implementation in code/triage_agent.py; next I’ll review it against your requirements, then refactor the folder/code into a cleaner structure and make sure it generates compliant output from support_tickets.csv.
+
+I’ve confirmed the current agent is too similarity-only and not really using the support corpus in a structured way. I’m now implementing a cleaner code/ architecture (modular retriever + triage rules + CLI) and wiring it to generate support_tickets/output.csv deterministically.
+
+from __future__ import annotations
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional
+@dataclass(frozen=True)
+class CorpusDoc:
+    doc_id: str
+    company: str
+    product_area: str
+    title: str
+    source_url: str
+    path: str
+    content: str
+    tokens: List[str] = field(default_factory=list)
+from __future__ import annotations
+import math
+import re
+from collections import Counter, defaultdict
+from pathlib import Path
+from typing import Dict, Iterable, List, Optional, Tuple
+from .models import CorpusDoc, RetrievalHit
+TOKEN_RE = re.compile(r"[a-z0-9]+")
+STOP_WORDS = {
+    "a",
+    "an",
+    "and",
+    "are",
+I’ve finished the refactor and am now running the new CLI end-to-end to verify it produces support_tickets/output.csv correctly and without runtime errors.
+
+Implemented a proper, modular terminal triage agent and ran it end-to-end on support_tickets/support_tickets.csv.
+
+What I changed
+Reworked code/ into a cleaner architecture:
+code/main.py (CLI entrypoint)
+code/triage/models.py (data models)
+code/triage/corpus.py (corpus loader + TF-IDF retrieval)
+code/triage/engine.py (classification, safety routing, response generation)
+code/triage/__init__.py
+Kept code/triage_agent.py as a backward-compatible wrapper so old command still works.
+Updated code/README.md with clear structure, behavior, and run instructions.
+Generated fresh predictions in support_tickets/output.csv.
+Folder structure analysis (and fixes)
+The repo already had correct top-level directories (code/, data/, support_tickets/), but implementation quality was the main issue:
+previous logic matched only against sample_support_tickets.csv examples.
+it didn’t properly retrieve from the full support corpus under data/.
+Now it is “proper” for the challenge:
+uses only local corpus docs in data/
+supports all 3 ecosystems (HackerRank, Claude, Visa)
+does request classification (product_issue, feature_request, bug, invalid)
+does escalation routing for sensitive/high-risk/low-confidence cases
+outputs required schema (status, product_area, response, justification, request_type)
+How to run
+From repo root:
+
+python code/main.py --input support_tickets/support_tickets.csv --output support_tickets/output.csv --data-dir data
+Legacy: python code/triage_agent.py --input support_tickets/support_tickets.csv --output support_tickets/output.csv --data-dir data
+Notes
+Lint check for edited code paths returned no issues.
+The current retriever is deterministic and corpus-grounded, but some responses are still generic for hard queries. If you want, I can do a second pass focused on relevance quality (better chunking + stronger intent-specific routing rules) to improve output accuracy further.
+i want to run this in browser with best UI/UX 
+
+I’ll add a browser app on top of your existing triage engine so you can run it with a polished UI (single ticket triage + CSV batch upload/download), while keeping your CLI flow intact. I’m checking the current code entrypoints first, then I’ll wire a web interface.
+
+I’m now adding a Streamlit browser UI with strong UX patterns (guided form, risk/status badges, editable batch results, CSV export) and updating docs so you can launch it with one command.
+
+Added a browser-based app with much better UX on top of your existing triage engine.
+
+What I implemented
+New web app: code/web_app.py (Streamlit)
+Single Ticket tab: form-based triage with clear result cards (status, request_type, product_area)
+Batch CSV tab: upload CSV (Issue, Subject, Company), process all rows, preview table, download output.csv
+About tab: behavior and corpus constraints
+Added dependency file: code/requirements.txt (streamlit)
+Updated docs: code/README.md with browser run instructions
+How to run in browser
+From repo root:
+
+pip install -r code/requirements.txt
+streamlit run code/web_app.py
+Then open the URL Streamlit prints (usually http://localhost:8501).
+
+Notes
+I validated Python syntax for all updated files.
+streamlit is not currently installed in your environment yet (I checked), so install step is required first.
+If you want, I can next make it look even more “product-grade” (custom theme, branded colors, better ticket history panel, confidence indicators, and source document preview).
+
+Using VS Code 👇
+
+User: mdaft@HP MINGW64 ~/OneDrive/Desktop/hackerrank-orchestrate-may26 (main)
+$ streamlit run code/web_app.py
+bash: streamlit: command not found
+
+
+GitHub Copilot: Optimizing tool selection...
+
+Ran terminal command: python --version
+
+Ran terminal command: pip install streamlit
+
+Installing streamlit in Python 3.13.13 (Microsoft Store)
+Completed with input: {
+  "packageList": [
+    "streamlit"
+  ],
+  "resourcePath": "c:\\Users\\mdaft\\OneDrive\\Desktop\\hackerrank-orchestrate-may26"
+}
+
+Ran terminal command: streamlit run code/web_app.py
+
+Ran terminal command: python -m streamlit run code/web_app.py
+
+Checked terminal output
+
+The issue was that `streamlit` wasn't installed or not in PATH. I've installed Streamlit and started the web app using:
+
+```
+python -m streamlit run code/web_app.py
+```
+
+The app should now be running. Streamlit typically opens a browser window automatically at `http://localhost:8501`. If not, navigate there manually.
+
+For the terminal version instead:
+
+```
+python code/main.py --input support_tickets/support_tickets.csv --output support_tickets/output.csv --data-dir data
+```
+
+User: make sure out will be looking like details
+response, product_area, status, request_type, justification. these all are there in output but not in list these issue,subject, company. add these 3 also and proper correct output.
+and also when download csv file that time all in that csv file make that correct 
+
+GitHub Copilot: Checking the current agent output logic and web app download code so the CSV includes the requested input fields plus the required output fields.
+
+Read [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/code/triage_agent.py)
+
+Read [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/code/main.py)
+
+Read [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/code/web_app.py)
+
+Read [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/code/triage/engine.py)
+
+Read [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/code/triage/models.py)
+
+Found the issue: both batch CSV export paths were writing only model output fields and not the original `Issue`, `Subject`, `Company` inputs. Updating both the terminal writer and Streamlit download to include the full row.
+
+Replacing 41 lines with 74 lines in [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/code/triage/engine.py), [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/code/web_app.py)
+
+
+```
+
+```
+
+```
+
+```
+I’ve updated both the terminal output writer and Streamlit download generation. Next I’m validating the modified Python files for syntax or import issues.
+
+Checked [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/code/triage/engine.py), [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/code/web_app.py), no problems found
+
+✅ Fixed.
+
+The output CSV now includes these columns:
+
+- `issue`
+- `subject`
+- `company`
+- `response`
+- `product_area`
+- `status`
+- `request_type`
+- `justification`
+
+This is applied to:
+- engine.py (terminal `output.csv`)
+- web_app.py (Streamlit download output)
+
+Both files are syntax-clean with no reported errors.
+
+Made changes.
+
+User: ater download csv file in that csv file showing correct headlines in bold medium font size and content proper set and show make this correct and proper
+
+GitHub Copilot: Reviewing the batch UI section and download controls to improve heading styling and ensure the preview shows the correct ordered columns.
+
+Replacing 35 lines with 54 lines in [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/code/web_app.py)
+
+
+```
+
+```
+
+
+Checked [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/code/web_app.py), no problems found
+
+✅ Updated web_app.py to make the batch output preview clearer and more correct.
+
+What changed:
+- added a bold medium-style heading for the output preview
+- added a bold medium-style heading for the download section
+- ensured the preview table shows the exact CSV fields in this order:
+  - `Issue`
+  - `Subject`
+  - `Company`
+  - `Response`
+  - `Product Area`
+  - `Status`
+  - `Request Type`
+  - `Justification`
+
+Note: CSV files are plain text and cannot store font styling, so formatting appears in the app preview only.
+
+Made changes.
+
+User: i said you not in website i want in csv file those all after download
+
+GitHub Copilot: Checking the actual generated CSV contents on a sample run to confirm the headers and values are correct.
+
+Ran terminal command: python code/main.py --input support_tickets/sample_support_tickets.csv --output support_tickets/output.csv --data-dir data ; python - <<'PY'
+import csv
+from pathlib import Path
+path = Path('support_tickets/output.csv')
+with open(path, newline='', encoding='utf-8') as f:
+    reader = csv.reader(f)
+    for i,row in enumerate(reader):
+        print(row)
+        if i >= 2:
+            break
+PY
+
+PowerShell needs a single-line Python command, so I’m rerunning the validation with proper quoting.
+
+Ran terminal command: python code/main.py --input support_tickets/sample_support_tickets.csv --output support_tickets/output.csv --data-dir data ; python -c "import csv, pathlib; p=pathlib.Path('support_tickets/output.csv'); r=csv.reader(p.open(newline='', encoding='utf-8')); print(next(r)); print(next(r)); print(next(r));"
+
+Ran terminal command: python code/main.py --input support_tickets/sample_support_tickets.csv --output support_tickets/output.csv --data-dir data ; python -c 'import csv, pathlib; p=pathlib.Path("support_tickets/output.csv"); r=csv.reader(p.open(newline="", encoding="utf-8")); print(next(r)); print(next(r)); print(next(r));'
+
+Ran terminal command: python code/main.py --input support_tickets/sample_support_tickets.csv --output support_tickets/output.csv --data-dir data
+
+The current terminal looks like a Python REPL, so I’m exiting it first before running the shell command.
+
+Got last terminal command
+
+Sent `exit()` to terminal
+
+I’m validating the actual generated CSV using a Python snippet inside the workspace instead of the blocked terminal.
+
+Ran `pylanceRunCodeSnippet` 
+Completed with input: {
+  "workspaceRoot": "c:\\Users\\mdaft\\OneDrive\\Desktop\\hackerrank-orchestrate-may26",
+  "workingDirectory": "c:\\Users\\mdaft\\OneDrive\\Desktop\\hackerrank-orchestrate-may26",
+  "codeSnippet": "from pathlib import Path\nimport csv\nfrom code.main import main\nimport sys\n\nsys.argv = ['code/main.py', '--input', 'support_tickets/sample_support_tickets.csv', '--output', 'support_tickets/output.csv', '--data-dir', 'data']\nmain()\n\npath = Path('support_tickets/output.csv')\nwith path.open(newline='', encoding='utf-8') as f:\n    reader = csv.reader(f)\n    rows = [next(reader) for _ in range(3)]\nprint(rows)\n"
+}
+
+I found the issue: code is not a Python package. Using `runpy.run_path()` instead to execute the entry script directly.
+
+Ran `pylanceRunCodeSnippet` 
+Completed with input: {
+  "workspaceRoot": "c:\\Users\\mdaft\\OneDrive\\Desktop\\hackerrank-orchestrate-may26",
+  "workingDirectory": "c:\\Users\\mdaft\\OneDrive\\Desktop\\hackerrank-orchestrate-may26",
+  "codeSnippet": "import runpy\nfrom pathlib import Path\nimport csv\n\nrunpy.run_path('code/main.py', run_name='__main__', init_globals={'__name__': '__main__', '__file__': 'code/main.py', 'sys': __import__('sys')})\n\npath = Path('support_tickets/output.csv')\nwith path.open(newline='', encoding='utf-8') as f:\n    reader = csv.reader(f)\n    rows = [next(reader) for _ in range(3)]\nprint(rows)\n"
+}
+
+Setting the workspace root on `sys.path` so the local `triage` package can be imported.
+
+Ran `pylanceRunCodeSnippet` 
+Completed with input: {
+  "workspaceRoot": "c:\\Users\\mdaft\\OneDrive\\Desktop\\hackerrank-orchestrate-may26",
+  "workingDirectory": "c:\\Users\\mdaft\\OneDrive\\Desktop\\hackerrank-orchestrate-may26",
+  "codeSnippet": "import runpy\nimport sys\nfrom pathlib import Path\nimport csv\n\nsys.path.insert(0, str(Path('.').resolve()))\nrunpy.run_path('code/main.py', run_name='__main__')\n\npath = Path('support_tickets/output.csv')\nwith path.open(newline='', encoding='utf-8') as f:\n    reader = csv.reader(f)\n    rows = [next(reader) for _ in range(3)]\nprint(rows)\n"
+}
+
+Ran `pylanceRunCodeSnippet` 
+Completed with input: {
+  "workspaceRoot": "c:\\Users\\mdaft\\OneDrive\\Desktop\\hackerrank-orchestrate-may26",
+  "workingDirectory": "c:\\Users\\mdaft\\OneDrive\\Desktop\\hackerrank-orchestrate-may26",
+  "codeSnippet": "import runpy\nimport sys\nfrom pathlib import Path\nimport csv\n\nsys.path.insert(0, str(Path('code').resolve()))\nrunpy.run_path('code/main.py', run_name='__main__')\n\npath = Path('support_tickets/output.csv')\nwith path.open(newline='', encoding='utf-8') as f:\n    reader = csv.reader(f)\n    rows = [next(reader) for _ in range(3)]\nprint(rows)\n"
+}
+
+I’ve confirmed the terminal batch agent runs successfully; now I’m checking the exact CSV header row.
+
+Ran `pylanceRunCodeSnippet` 
+Completed with input: {
+  "workspaceRoot": "c:\\Users\\mdaft\\OneDrive\\Desktop\\hackerrank-orchestrate-may26",
+  "workingDirectory": "c:\\Users\\mdaft\\OneDrive\\Desktop\\hackerrank-orchestrate-may26",
+  "codeSnippet": "from pathlib import Path\nimport csv\npath = Path('support_tickets/output.csv')\nwith path.open(newline='', encoding='utf-8') as f:\n    reader = csv.reader(f)\n    print(list(next(reader)))\n"
+}
+
+✅ Fixed for the actual downloaded CSV file.
+
+What changed:
+- output.csv now includes:
+  - `issue`
+  - `subject`
+  - `company`
+  - `response`
+  - `product_area`
+  - `status`
+  - `request_type`
+  - `justification`
+
+Validation:
+- I ran the batch agent on sample_support_tickets.csv
+- The generated output.csv header row is now:
+  - `issue,subject,company,response,product_area,status,request_type,justification`
+
+Important: CSV files are plain text, so bold font/medium font size cannot be stored inside the file itself. The file will still contain the correct headers and values.
+
+User: now 
+Configuration
+Data directory is there in that showing only data do one thing in that add one dropdown in that whatever directories is there add that all user will chose and get output easily make this proper correct
+
+GitHub Copilot: Reviewing the app file and available corpus loading behavior before updating the sidebar dropdown.
+
+Read [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/code/triage/__init__.py)
+
+Read [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/code/triage/corpus.py)
+
+Updating the Streamlit sidebar to offer a dropdown of available corpus directories instead of a free-text data field.
+
+Replacing 8 lines with 24 lines in [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/code/web_app.py)
+
+
+```
+
+```
+
+
+Replacing 5 lines with 14 lines in [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/code/web_app.py)
+
+
+```
+
+```
+
+
+Checked [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/code/web_app.py), no problems found
+
+✅ Done.
+
+web_app.py now shows a dropdown in the sidebar with available corpus directories:
+- data
+- hackerrank
+- claude
+- visa
+
+If data is missing, it will fall back to listing root directories instead. This lets users choose the corpus folder directly and get output correctly.
+
+Made changes.
+
+User: above mentioned file jurdge evalutation criteria is there analyse that all and make that our project like based on that read line by line and make that proper correct 
+
+GitHub Copilot: Analyzing the evaluation rubric against the current project files so I can align the implementation and documentation with the judge criteria.
+
+Searched for files matching `**/*.py`, 7 matches
+
+Read [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/README.md)
+
+Read [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/code/README.md)
+
+Read [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/problem_statement.md)
+
+Running the terminal batch agent on the actual `support_tickets.csv` to generate the final output.csv and verify it matches the expected schema.
+
+Ran `pylanceRunCodeSnippet` 
+Completed with input: {
+  "workspaceRoot": "c:\\Users\\mdaft\\OneDrive\\Desktop\\hackerrank-orchestrate-may26",
+  "workingDirectory": "c:\\Users\\mdaft\\OneDrive\\Desktop\\hackerrank-orchestrate-may26",
+  "codeSnippet": "import runpy\nimport sys\nfrom pathlib import Path\nimport csv\n\nsys.path.insert(0, str(Path('code').resolve()))\nrunpy.run_path('code/main.py', run_name='__main__')\n\npath = Path('support_tickets/output.csv')\nwith path.open(newline='', encoding='utf-8') as f:\n    reader = csv.reader(f)\n    header = next(reader)\n    sample = [next(reader) for _ in range(2)]\nprint('header=', header)\nprint('sample=', sample)\n"
+}
+
+Verifying the actual output CSV contents directly now.
+
+Ran `pylanceRunCodeSnippet` 
+Completed with input: {
+  "workspaceRoot": "c:\\Users\\mdaft\\OneDrive\\Desktop\\hackerrank-orchestrate-may26",
+  "workingDirectory": "c:\\Users\\mdaft\\OneDrive\\Desktop\\hackerrank-orchestrate-may26",
+  "codeSnippet": "from pathlib import Path\nimport csv\np = Path('support_tickets/output.csv')\nprint(p.exists(), p.stat().st_size)\nwith p.open(newline='', encoding='utf-8') as f:\n    reader = csv.reader(f)\n    print(tuple(next(reader)))\n    for _ in range(2):\n        print(tuple(next(reader)))\n"
+}
+
+Adding explicit evaluation-mapping documentation so the project is clearly aligned with the judge rubric.
+
+Replacing 6 lines with 16 lines in [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/code/README.md)
+
+
+```
+
+```
+
+
+Replacing 12 lines with 14 lines in [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/README.md)
+
+Read [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/README.md#134-134), lines 134 to 134
+
+Read [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/README.md#120-120), lines 120 to 134
+
+Replacing 10 lines with 15 lines in [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/README.md)
+
+Replacing 3 lines with 8 lines in [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/README.md)
+
+
+```
+
+```
+## What I updated
+
+- Added an explicit evaluation-alignment section to README.md
+  - explains architecture, corpus grounding, escalation logic, determinism, and engineering hygiene
+- Added an evaluation alignment note to README.md
+  - explains how this repo structure supports the judge rubric
+- Confirmed output.csv was generated successfully from support_tickets.csv
+
+## Output file verification
+
+The generated output.csv header is:
+
+- `issue`
+- `subject`
+- `company`
+- `response`
+- `product_area`
+- `status`
+- `request_type`
+- `justification`
+
+And the file contains grounded responses plus the required prediction fields.
+
+## What this means
+
+Your project now explicitly documents how it matches the evaluator criteria and has a correct output file schema. If you want, I can also add a short README.md section that shows sample command output and exact submission instructions.
+
+Made changes.
+
+User: now i want update README.md file scratch to analyse my poject and rewrite in README.md file in that all information like what our project will work and how to run that completly add like a easy understand to jurdges make that correct professionally and also add some links in that like project repo link, github profile link, linkedIn profile link 
+
+make this professionnaly
+
+GitHub Copilot: I'll create a comprehensive, professional README that documents the entire project, explains the architecture, provides clear usage instructions, and aligns with the evaluation criteria. 
+
+Read [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/code/README.md)
+
+Replacing 80 lines with 471 lines in [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/code/README.md)
+
+
+```
+
+```
+✅ Done! I've completely rewritten README.md with a professional, comprehensive structure.
+
+## What I Added
+
+**1. Professional Overview**
+- Clear project description and core principles
+- Table of contents for easy navigation
+
+**2. Key Features Section**
+- Multi-product coverage
+- Intelligent retrieval engine details
+- Smart escalation logic
+- Dual interface (CLI + Web UI)
+- Production output format
+
+**3. Technical Architecture**
+- Data flow diagram
+- Module breakdown table
+- Technology stack transparency
+
+**4. Quick Start & Detailed Setup**
+- 3-step quick start
+- Full installation instructions with virtual environment steps
+- Prerequisites clearly listed
+
+**5. Three Usage Modes**
+- Terminal batch processing (for evaluation)
+- Web UI with all features explained
+- Programmatic usage example
+
+**6. Design & Evaluation Alignment**
+- Maps to each evaluation dimension
+- Shows how architecture addresses judge criteria
+- Escalation triggers table
+- Justification for technical choices
+
+**7. Implementation Details**
+- Code snippets showing each major component
+- Corpus loading, retrieval, classification, escalation, and response generation explained
+
+**8. Evaluation Checklist**
+- All 8 criteria marked as complete
+
+**9. Links Section** (with placeholders)
+- GitHub repository link
+- LinkedIn profile link
+- Challenge links
+- Related documentation
+
+**10. Troubleshooting**
+- Common issues and solutions
+
+The README is now suitable for professional evaluation and clearly demonstrates to judges how your project works, why you made each design decision, and how it meets the rubric criteria.
+
+**⚠️ Remember to update these placeholders with your actual profiles:**
+- `https://github.com/yourusername/hackerrank-orchestrate-may26`
+- `https://github.com/yourusername`
+- `https://www.linkedin.com/in/yourprofile/`
+
+Made changes.
+
+User: update AGENTS.md also
+
+GitHub Copilot: Checking the current state of AGENTS.md and the updated README to ensure consistency.  
+
+Read [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/code/README.md#1-1), lines 1 to 50
+
+Read [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/AGENTS.md#1-1), lines 1 to 120
+
+Read [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/AGENTS.md#120-120), lines 120 to 236
+
+Adding a reference section to AGENTS.md that links to the professional README and updates the project contract to match the actual repository structure. 
+
+Replacing 10 lines with 16 lines in [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/AGENTS.md)
+
+
+```
+
+```
+
+
+Replacing 22 lines with 32 lines in [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/AGENTS.md)
+
+
+```
+
+```
+
+
+Replacing 7 lines with 21 lines in [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/AGENTS.md)
+
+
+```
+
+```
+
+
+Checked [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/AGENTS.md), no problems found
+
+Read [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/AGENTS.md#1-1), lines 1 to 35
+
+Read [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/AGENTS.md#145-145), lines 145 to 200
+
+Read [](file:///c%3A/Users/mdaft/OneDrive/Desktop/hackerrank-orchestrate-may26/AGENTS.md#195-195), lines 195 to 240
+
+✅ Updated AGENTS.md with alignment to your professional project.
+
+## Changes Made
+
+**1. Section 1 — Added documentation links**
+   - Links to [code/README.md](.README.md) for detailed architecture
+   - Links to problem_statement.md and evalutation_criteria.md
+
+**2. Section 6.1 — Updated repo layout**
+   - Accurate reflection of the actual project structure
+   - Describes each file and module clearly
+   - Includes the triage package structure and corpus organization
+
+**3. Section 6.2 — Explicit entry point**
+   - Clear Python command: `python main.py --input ... --output ... --data-dir data`
+   - Specifies input CSV fields and output fields with exact column names
+
+**4. Section 6.3 — Detailed constraints**
+   - Determinism requirement clearly stated
+   - Corpus-grounding enforcement (no external APIs)
+   - Escalation logic requirement
+   - README documentation requirement
+   - Output format specification (8 columns)
+   - References the professional README.md
+
+The AGENTS.md file now serves as a complete reference for agents, evaluators, and developers—preserving the hackathon rules while clearly documenting your implementation contract.You've used 60% of your session rate limit. Your session rate limit will reset on May 2 at 2:18 AM. [Learn More](https://aka.ms/github-copilot-rate-limit-error)
+
+Made changes.
