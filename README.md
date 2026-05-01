@@ -423,11 +423,6 @@ def _build_reply_response(ticket, hits) -> str:
 ### Developer Profile
 - **GitHub:** [mahammadaftab](https://github.com/mahammadaftab)
 - **LinkedIn:** [mahammad-aftab](https://www.linkedin.com/in/mahammad-aftab)
-
-### Related Documentation
-- [problem_statement.md](../problem_statement.md) — Full task specification
-- [AGENTS.md](../AGENTS.md) — AI tool integration guidelines
-
 ---
 
 ## Troubleshooting
